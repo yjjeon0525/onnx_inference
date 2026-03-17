@@ -1,19 +1,21 @@
 # ONNX Inference Pipeline
 
-A modular ONNX inference pipeline for object detection models. Supports single/multi-model inference on images and videos, with model comparison, visualization, and JSON export.
+A modular ONNX inference pipeline for object detection models. Supports single/multi-model inference on images and videos, with model comparison, visualization, and JSON export. Includes static model analysis and per-layer activation profiling for quantization debugging.
 
 ## Features
 
-- **Single & Multi-Model Inference** - Run one or multiple ONNX models and compare results
-- **Image / Video / Directory** - Accepts `.jpg`, `.png`, `.bmp`, `.mp4`, `.avi`, `.mov`, `.mkv`, or a directory of images
-- **Configurable Preprocessing** - ROI crop (normalized coordinates) and resize with selectable OpenCV interpolation method
-- **Coordinate Reversion** - Bounding boxes are mapped back to original image coordinates after crop/resize
-- **NMS Support** - Apply NMS internally or skip if the model already includes it
-- **Threshold Control** - Global, per-model, and per-class confidence thresholds
-- **Comparison Mode** - Cosine similarity on raw outputs, precision/recall/F1 on detections, inference timing stats
-- **Visualization** - Overlay (all models on one image) or side-by-side view, togglable at runtime with `t` key
-- **JSON Export** - Optionally save per-frame detections and comparison summary
-- **Extensible** - Add new model types (YOLOX, EfficientDet, etc.) by subclassing `BaseInferencer`
+- **Single & Multi-Model Inference** — Run one or multiple ONNX models and compare results
+- **Image / Video / Directory** — Accepts `.jpg`, `.png`, `.bmp`, `.mp4`, `.avi`, `.mov`, `.mkv`, or a directory of images
+- **Configurable Preprocessing** — ROI crop (normalized coordinates) and resize with selectable OpenCV interpolation method
+- **Coordinate Reversion** — Bounding boxes are mapped back to original image coordinates after crop/resize
+- **NMS Support** — Apply NMS internally or skip if the model already includes it
+- **Threshold Control** — Global, per-model, and per-class confidence thresholds
+- **Comparison Mode** — Cosine similarity on raw outputs, precision/recall/F1 on detections, inference timing stats
+- **Visualization** — Overlay (all models on one image) or side-by-side view, togglable at runtime with `t` key
+- **JSON Export** — Optionally save per-frame detections and comparison summary
+- **Static Model Analysis** — Compare two ONNX files by graph structure and weight values without running inference
+- **Layer Profiling** — Compare per-layer intermediate activations between two models to debug quantization drift
+- **Extensible** — Add new model types (YOLOX, EfficientDet, etc.) by subclassing `BaseInferencer`
 
 ## Setup
 
@@ -32,6 +34,7 @@ pip install -r requirements.txt
 - `opencv-python`
 - `numpy`
 - `pyyaml`
+- `onnx`
 - `pytest`
 
 ## Quick Start
@@ -52,6 +55,39 @@ python main.py --config configs/compare.yaml --input path/to/video.mp4
 
 ```bash
 python main.py --config configs/default.yaml --input path/to/image_dir/
+```
+
+### Static Model Comparison
+
+Compare two ONNX files by graph structure and weight values (no inference needed):
+
+```bash
+python main.py --compare-models onnx_files/org.onnx onnx_files/qat.onnx
+```
+
+Save the comparison report as JSON:
+
+```bash
+python main.py --compare-models onnx_files/org.onnx onnx_files/qat.onnx \
+  --output-json output/model_comparison.json
+```
+
+### Per-Layer Activation Profiling
+
+Compare intermediate layer outputs between two models given an input image. Useful for finding where quantization drift starts:
+
+```bash
+python main.py --compare-models onnx_files/org.onnx onnx_files/qat.onnx \
+  --profile-layers --input test_data/test_image.jpg
+```
+
+With config and JSON output:
+
+```bash
+python main.py --compare-models onnx_files/org.onnx onnx_files/qat.onnx \
+  --profile-layers --input test_data/test_image.jpg \
+  --config configs/default.yaml \
+  --output-json output/report.json
 ```
 
 ## Configuration
@@ -123,6 +159,16 @@ python main.py --config configs/default.yaml --input img.jpg \
   --preprocess.resize.method INTER_CUBIC
 ```
 
+## CLI Reference
+
+| Flag | Description |
+|------|-------------|
+| `--config PATH` | Path to YAML config file (required for inference mode) |
+| `--input PATH` | Path to image, video, or directory |
+| `--compare-models A B` | Compare two ONNX model files (structure + weights) |
+| `--profile-layers` | Compare per-layer activations (requires `--compare-models` and `--input`) |
+| `--output-json PATH` | Save comparison report as JSON |
+
 ## Keyboard Controls (Video Mode)
 
 | Key | Action |
@@ -173,20 +219,24 @@ onnx_inference/
 │   ├── preprocessor.py      # Crop, resize, normalize
 │   ├── postprocessor.py     # NMS, threshold filter, coordinate revert
 │   ├── visualizer.py        # Draw bboxes, overlay, side-by-side, toggle
-│   ├── comparator.py        # Cosine similarity, metrics, timing
+│   ├── comparator.py        # Cosine similarity, metrics, timing (runtime)
+│   ├── model_analyzer.py    # Static ONNX model comparison (structure + weights)
+│   ├── layer_profiler.py    # Per-layer activation comparison
 │   ├── runner.py            # Pipeline orchestrator
 │   └── inferencer/
 │       ├── __init__.py      # Factory (create_inferencer)
 │       ├── base.py          # BaseInferencer (ABC)
-│       └── yolov8.py        # YOLOv8 dual-output parser
-├── tests/                   # 45 unit tests
+│       └── yolov8.py        # YOLOv8 dual-output parser with grid/stride decode
+├── tests/
 │   ├── test_config.py
 │   ├── test_preprocessor.py
 │   ├── test_inferencer.py
 │   ├── test_postprocessor.py
 │   ├── test_visualizer.py
 │   ├── test_comparator.py
-│   └── test_runner.py
+│   ├── test_runner.py
+│   ├── test_model_analyzer.py
+│   └── test_layer_profiler.py
 └── output/                  # Generated results
 ```
 
