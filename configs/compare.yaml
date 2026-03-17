@@ -1,0 +1,38 @@
+models:
+  - name: "org"
+    path: "onnx_files/org.onnx"
+    type: "yolov8"
+    nms_applied: false
+  - name: "qat"
+    path: "onnx_files/qat.onnx"
+    type: "yolov8"
+    nms_applied: false
+
+preprocess:
+  crop:
+    enabled: false
+    region: [0.0, 0.0, 1.0, 1.0]
+  resize:
+    method: "INTER_LINEAR"
+    input_size: null
+
+postprocess:
+  conf_threshold: 0.25
+  iou_threshold: 0.45
+  class_thresholds: {}
+
+output:
+  save_video: true
+  save_json: true
+  display: false
+  output_dir: "output/"
+
+comparison:
+  mode: "overlay"
+  metrics: ["cosine_similarity", "precision", "recall", "inference_time"]
+
+class_names: null
+
+video:
+  codec: "mp4v"
+  preserve_fps: true
