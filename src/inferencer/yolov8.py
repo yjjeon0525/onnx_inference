@@ -6,8 +6,9 @@ from src.config import ModelConfig
 
 class YOLOv8Inferencer(BaseInferencer):
     def postprocess_raw(self, raw_output: list[np.ndarray]) -> np.ndarray:
-        boxes = raw_output[0][0].T    # (num_boxes, 4)
-        cls = raw_output[1][0].T      # (num_boxes, num_classes)
+        # Model outputs: [cls_scores (1, num_classes, N), boxes (1, 4, N)]
+        cls = raw_output[0][0].T      # (num_boxes, num_classes)
+        boxes = raw_output[1][0].T    # (num_boxes, 4)
 
         cx, cy, w, h = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
         x1 = cx - w / 2

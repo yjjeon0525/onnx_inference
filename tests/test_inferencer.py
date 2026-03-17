@@ -24,17 +24,18 @@ class TestYOLOv8PostprocessRaw:
     def test_output_shape(self):
         num_boxes = 100
         num_classes = 80
-        boxes = np.random.rand(1, 4, num_boxes).astype(np.float32)
+        # Model outputs: [cls_scores (1, num_classes, N), boxes (1, 4, N)]
         cls_scores = np.random.rand(1, num_classes, num_boxes).astype(np.float32)
+        boxes = np.random.rand(1, 4, num_boxes).astype(np.float32)
         inferencer = YOLOv8Inferencer.__new__(YOLOv8Inferencer)
-        result = inferencer.postprocess_raw([boxes, cls_scores])
+        result = inferencer.postprocess_raw([cls_scores, boxes])
         assert result.shape == (num_boxes, 6)
 
     def test_bbox_format_xyxy(self):
-        boxes = np.array([[[50.0], [50.0], [20.0], [30.0]]])
         cls_scores = np.array([[[0.9]]])
+        boxes = np.array([[[50.0], [50.0], [20.0], [30.0]]])
         inferencer = YOLOv8Inferencer.__new__(YOLOv8Inferencer)
-        result = inferencer.postprocess_raw([boxes, cls_scores])
+        result = inferencer.postprocess_raw([cls_scores, boxes])
         assert result[0, 0] == pytest.approx(40.0)
         assert result[0, 1] == pytest.approx(35.0)
         assert result[0, 2] == pytest.approx(60.0)
@@ -43,10 +44,10 @@ class TestYOLOv8PostprocessRaw:
         assert result[0, 5] == 0
 
     def test_best_class_selected(self):
-        boxes = np.array([[[10.0], [10.0], [5.0], [5.0]]])
         cls_scores = np.array([[[0.1], [0.8], [0.3]]])
+        boxes = np.array([[[10.0], [10.0], [5.0], [5.0]]])
         inferencer = YOLOv8Inferencer.__new__(YOLOv8Inferencer)
-        result = inferencer.postprocess_raw([boxes, cls_scores])
+        result = inferencer.postprocess_raw([cls_scores, boxes])
         assert result[0, 4] == pytest.approx(0.8)
         assert result[0, 5] == 1
 
