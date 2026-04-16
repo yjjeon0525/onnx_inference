@@ -52,8 +52,9 @@ class Preprocessor:
         input_h, input_w = input_size
         resized = cv2.resize(cropped, (input_w, input_h), interpolation=self.cv2_method)
 
-        rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
-        normalized = rgb.astype(np.float32) #/ 255.0
+        # rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+        rgb = resized.copy()
+        normalized = rgb.astype(np.float32) # / 255.0
         chw = np.transpose(normalized, (2, 0, 1))
         tensor = np.expand_dims(chw, axis=0)
 

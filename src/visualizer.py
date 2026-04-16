@@ -3,6 +3,19 @@ import cv2
 import numpy as np
 
 
+def _generate_class_colors(num_classes: int = 80) -> list[tuple[int, int, int]]:
+    colors = []
+    for i in range(num_classes):
+        hue = int(180 * i / num_classes)
+        hsv = np.array([[[hue, 255, 220]]], dtype=np.uint8)
+        bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)[0, 0]
+        colors.append((int(bgr[0]), int(bgr[1]), int(bgr[2])))
+    return colors
+
+
+CLASS_COLORS = _generate_class_colors(80)
+
+
 class Visualizer:
     MODEL_COLORS = [
         (0, 255, 0), (0, 0, 255), (255, 0, 0), (255, 255, 0),
@@ -34,9 +47,9 @@ class Visualizer:
         img = image.copy()
         if len(detections) == 0:
             return img
-        draw_color = color or (0, 255, 0)
         for det in detections:
             x1, y1, x2, y2, conf, cls_id = det
+            draw_color = color or CLASS_COLORS[int(cls_id) % len(CLASS_COLORS)]
             pt1 = (int(x1), int(y1))
             pt2 = (int(x2), int(y2))
             cv2.rectangle(img, pt1, pt2, draw_color, 2)

@@ -14,6 +14,7 @@ from src.comparator import Comparator
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp"}
 VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv"}
+FHD_WIDTH, FHD_HEIGHT = 1920, 1080
 
 
 class Runner:
@@ -103,6 +104,15 @@ class Runner:
             det_list.append(entry)
         return {"detections": det_list, "inference_time_ms": time_ms}
 
+    @staticmethod
+    def _resize_for_display(image: np.ndarray) -> np.ndarray:
+        h, w = image.shape[:2]
+        if w <= FHD_WIDTH and h <= FHD_HEIGHT:
+            return image
+        scale = min(FHD_WIDTH / w, FHD_HEIGHT / h)
+        new_w, new_h = int(w * scale), int(h * scale)
+        return cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+
     def run_image(self, image_path: str):
         image = cv2.imread(image_path)
         if image is None:
@@ -110,7 +120,7 @@ class Runner:
         all_dets, all_times, vis_image = self._process_frame(image)
 
         if self.config.output.display:
-            cv2.imshow("ONNX Inference", vis_image)
+            cv2.imshow("ONNX Inference", self._resize_for_display(vis_image))
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
@@ -160,7 +170,7 @@ class Runner:
                 writer.write(vis_image)
 
             if self.config.output.display:
-                cv2.imshow("ONNX Inference (t=toggle, q=quit)", vis_image)
+                cv2.imshow("ONNX Inference (t=toggle, q=quit)", self._resize_for_display(vis_image))
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord("q"):
                     break
@@ -200,8 +210,11 @@ class Runner:
             for f in files:
                 ext = os.path.splitext(f)[1].lower()
                 if ext in IMAGE_EXTS:
-                    print(f"Processing: {f}")
+                    print(f"Processing image: {f}")
                     self.run_image(os.path.join(input_path, f))
+                elif ext in VIDEO_EXTS:
+                    print(f"Processing video: {f}")
+                    self.run_video(os.path.join(input_path, f))
         else:
             ext = os.path.splitext(input_path)[1].lower()
             if ext in IMAGE_EXTS:
