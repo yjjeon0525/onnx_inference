@@ -1,15 +1,15 @@
-# src/inferencer/yolov8.py
+# src/inferencer/yolox.py
 import numpy as np
 from src.inferencer.base import BaseInferencer
 from src.config import ModelConfig
 
 
-class YOLOv8Inferencer(BaseInferencer):
-    """YOLOv8 inferencer with grid/stride anchor decoding.
+class YOLOXInferencer(BaseInferencer):
+    """YOLOX inferencer with grid/stride anchor decoding.
 
-    Handles the raw model output where box predictions are grid-relative
-    offsets (left, top, right, bottom) that need to be decoded using
-    grid cell positions and stride values.
+    Handles YOLOX output format where:
+        reg_output: (1, 4, N) — raw box offsets (center-x, center-y, w, h)
+        conf_output: (1, num_classes, N) — pre-multiplied obj * cls scores
     """
 
     def __init__(self, model_path: str, model_config: ModelConfig):
@@ -18,10 +18,10 @@ class YOLOv8Inferencer(BaseInferencer):
         self._grid_cache: dict[tuple[int, int], tuple[np.ndarray, np.ndarray]] = {}
 
     def _build_grid(self, input_h: int, input_w: int) -> tuple[np.ndarray, np.ndarray]:
-        """Build grid cell centers and stride arrays for all feature map levels.
+        """Build grid cell positions and stride arrays for all feature map levels.
 
         Returns:
-            grid: (N, 2) array of (cx, cy) grid cell center coordinates
+            grid: (N, 2) array of (gx, gy) grid cell positions
             strides: (N,) array of stride values per cell
         """
         key = (input_h, input_w)
@@ -34,7 +34,6 @@ class YOLOv8Inferencer(BaseInferencer):
         for stride in self.strides:
             feat_h = input_h // stride
             feat_w = input_w // stride
-            # Grid cell centers: offset by 0.5 and scaled by stride
             yv, xv = np.meshgrid(
                 np.arange(feat_h, dtype=np.float32),
                 np.arange(feat_w, dtype=np.float32),
@@ -44,7 +43,7 @@ class YOLOv8Inferencer(BaseInferencer):
             grids.append(grid)
             stride_arr.append(np.full(feat_h * feat_w, stride, dtype=np.float32))
 
-        grid = np.concatenate(grids, axis=0)       # (N, 2)
+        grid = np.concatenate(grids, axis=0)        # (N, 2)
         strides = np.concatenate(stride_arr, axis=0)  # (N,)
 
         self._grid_cache[key] = (grid, strides)
@@ -53,44 +52,46 @@ class YOLOv8Inferencer(BaseInferencer):
     def _decode_boxes(
         self, raw_boxes: np.ndarray, grid: np.ndarray, strides: np.ndarray
     ) -> np.ndarray:
-        """Decode raw box predictions to pixel coordinates.
+        """Decode YOLOX raw box predictions to pixel coordinates.
 
-        Args:
-            raw_boxes: (N, 4) raw predictions [left, top, right, bottom] distances
-            grid: (N, 2) grid cell positions [gx, gy]
-            strides: (N,) stride per cell
+        YOLOX box format: (cx_offset, cy_offset, w, h) in grid-relative space.
+        Decoded as:
+            cx = (grid_x + cx_offset) * stride
+            cy = (grid_y + cy_offset) * stride
+            w  = exp(w) * stride
+            h  = exp(h) * stride
 
         Returns:
             (N, 4) decoded boxes in [x1, y1, x2, y2] pixel coordinates
         """
-        strides_2d = strides[:, None]  # (N, 1)
+        cx = (grid[:, 0] + raw_boxes[:, 0]) * strides
+        cy = (grid[:, 1] + raw_boxes[:, 1]) * strides
+        w = np.exp(raw_boxes[:, 2]) * strides
+        h = np.exp(raw_boxes[:, 3]) * strides
+        # w = raw_boxes[:, 2] * strides
+        # h = raw_boxes[:, 3] * strides
 
-        # Grid center in pixel space
-        cx = (grid[:, 0] + 0.5) * strides
-        cy = (grid[:, 1] + 0.5) * strides
-
-        # Decode: center +/- distance * stride
-        x1 = cx - raw_boxes[:, 0] * strides
-        y1 = cy - raw_boxes[:, 1] * strides
-        x2 = cx + raw_boxes[:, 2] * strides
-        y2 = cy + raw_boxes[:, 3] * strides
+        x1 = cx - w / 2
+        y1 = cy - h / 2
+        x2 = cx + w / 2
+        y2 = cy + h / 2
 
         return np.stack([x1, y1, x2, y2], axis=1)
 
     def postprocess_raw(self, raw_output: list[np.ndarray]) -> np.ndarray:
-        """Parse YOLOv8 dual output and decode to pixel coordinates.
+        """Parse YOLOX outputs and decode to pixel coordinates.
 
         Model outputs:
-            raw_output[0]: cls scores (1, num_classes, N)
-            raw_output[1]: box offsets (1, 4, N) — raw grid-relative distances
+            raw_output[0]: reg_output (1, 4, N) — raw box offsets
+            raw_output[1]: conf_output (1, num_classes, N) — pre-multiplied obj * cls
 
         Returns:
             (N, 6) array of [x1, y1, x2, y2, confidence, class_id]
         """
-        cls = raw_output[0][0].T       # (N, num_classes)
-        raw_boxes = raw_output[1][0].T  # (N, 4)
-        
-        # print(cls.shape, raw_boxes.shape)
+        raw_boxes = raw_output[1][0].T   # (N, 4)
+        cls = raw_output[0][0].T         # (N, num_classes)
+
+        # print(raw_boxes.shape)
         input_h, input_w = self._input_size
         grid, strides = self._build_grid(input_h, input_w)
 

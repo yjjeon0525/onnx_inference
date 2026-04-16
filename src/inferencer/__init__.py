@@ -2,9 +2,13 @@
 from src.config import ModelConfig
 from src.inferencer.base import BaseInferencer
 from src.inferencer.yolov8 import YOLOv8Inferencer
+from src.inferencer.yolox import YOLOXInferencer
+from src.inferencer.yolov8_dfl import YOLOv8DFLInferencer
 
 INFERENCER_REGISTRY = {
     "yolov8": YOLOv8Inferencer,
+    "yolov8_dfl": YOLOv8DFLInferencer,
+    "yolox": YOLOXInferencer,
 }
 
 

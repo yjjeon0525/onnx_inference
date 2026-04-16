@@ -38,6 +38,8 @@ class ModelConfig:
     conf_threshold: Optional[float] = None
     iou_threshold: Optional[float] = None
     class_thresholds: Optional[dict[int, float]] = None
+    strides: list[int] = field(default_factory=lambda: [8, 16, 32])
+    reg_max: int = 16
 
 
 @dataclass
@@ -125,6 +127,8 @@ def _build_model_config(raw: dict) -> ModelConfig:
         conf_threshold=raw.get("conf_threshold", None),
         iou_threshold=raw.get("iou_threshold", None),
         class_thresholds=raw.get("class_thresholds", None),
+        strides=raw.get("strides", [8, 16, 32]),
+        reg_max=raw.get("reg_max", 16),
     )
 
 
