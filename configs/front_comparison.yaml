@@ -1,16 +1,15 @@
 models:
   - name: "org"
-    path: "onnx_files/org.onnx"
+    path: "D:/History/D22_4K/torch_native_qat/export.onnx"
     type: "yolov8"
     nms_applied: false
-  - name: "qat"
-    path: "onnx_files/qat.onnx"
-    type: "yolov8"
-    nms_applied: false
+    conf_threshold: null
+    iou_threshold: null
+    class_thresholds: null
 
 preprocess:
   crop:
-    enabled: false
+    enabled: true
     region: [0.0, 0.0, 1.0, 0.94814814814814814814814814814815]
   resize:
     method: "INTER_LINEAR"
@@ -22,8 +21,8 @@ postprocess:
   class_thresholds: {}
 
 output:
-  save_video: true
-  save_json: true
+  save_video: false
+  save_json: false
   display: true
   output_dir: "output/"
 

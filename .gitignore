@@ -26,3 +26,5 @@ output/
 
 # Claude
 .claude/
+.doc/
+CLAUDE.md
